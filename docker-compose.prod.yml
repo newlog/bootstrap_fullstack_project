@@ -1,0 +1,55 @@
+services:
+  django_post_publisher:
+    build:
+      context: .
+      dockerfile: ./compose/production/django/Dockerfile
+    container_name: django_post_publisher
+    command: >
+      sh -c "python manage.py migrate &&
+             gunicorn --bind 0.0.0.0:8000 post_publisher.wsgi:application"
+    volumes:
+      - post_publisher_static_volume:/app/staticfiles
+      - post_publisher_media_volume:/app/media
+    expose:
+      - 8000
+    environment:
+      - DJANGO_SETTINGS_MODULE=post_publisher.settings
+      - PYTHONUNBUFFERED=1
+      - PYTHONDONTWRITEBYTECODE=1
+    depends_on:
+      - redis
+
+  celery:
+    build:
+      context: .
+      dockerfile: ./compose/production/celery/Dockerfile
+    container_name: celery
+    command: celery -A post_publisher worker --loglevel=info
+    depends_on:
+      - redis
+
+  redis:
+    image: redis:alpine
+    container_name: redis
+    expose:
+      - 6379
+
+  frontend_post_publisher:
+    build:
+      context: .
+      dockerfile: ./compose/production/frontend/Dockerfile
+    container_name: frontend_post_publisher
+    command: nginx -g "daemon off;"
+    volumes:
+      - post_publisher_static_volume:/usr/share/nginx/html/static
+      - post_publisher_media_volume:/usr/share/nginx/html/media
+    ports:
+      - "80:80"
+    environment:
+      - NODE_ENV=production
+    depends_on:
+      - django_post_publisher
+
+volumes:
+  post_publisher_static_volume:
+  post_publisher_media_volume:

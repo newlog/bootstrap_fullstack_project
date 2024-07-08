@@ -1,0 +1,7 @@
+django
+redis
+celery
+djangorestframework
+markdown
+django-filter
+requests

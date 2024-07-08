@@ -1,0 +1,57 @@
+services:
+  django_post_publisher:
+    build:
+      context: .
+      dockerfile: ./compose/development/django/Dockerfile
+    container_name: django_post_publisher
+    command: >
+      sh -c "python manage.py migrate &&
+             python manage.py runserver 0.0.0.0:8000"
+    volumes:
+      - ./backend/post_publisher:/app
+      - post_publisher_static_volume:/app/staticfiles
+      - post_publisher_media_volume:/app/media
+    ports:
+      - "8000:8000"
+    environment:
+      - DJANGO_SETTINGS_MODULE=post_publisher.settings
+      - PYTHONUNBUFFERED=0
+      - PYTHONDONTWRITEBYTECODE=0
+    depends_on:
+      - redis
+
+  celery:
+    build:
+      context: .
+      dockerfile: ./compose/development/celery/Dockerfile
+    container_name: celery
+    command: celery -A post_publisher worker --loglevel=info
+    volumes:
+      - ./backend/post_publisher:/app
+    depends_on:
+      - redis
+
+  redis:
+    image: redis:alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+
+  frontend_post_publisher:
+    build:
+      context: .
+      dockerfile: ./compose/development/frontend/Dockerfile
+    container_name: frontend_post_publisher
+    command: npm start
+    volumes:
+      - ./frontend/post_publisher:/app
+      - post_publisher_static_volume:/app/staticfiles
+      - post_publisher_media_volume:/app/media
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+
+volumes:
+  post_publisher_static_volume:
+  post_publisher_media_volume:
